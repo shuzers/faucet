@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sepolia Faucet</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+            animation: fadeIn 0.4s ease-out;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loading-spinner {
+            border: 2px solid rgba(0,0,0,.1);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 0.6s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-black text-white min-h-screen transition-colors duration-300">
+    
+    <!-- Alert Toast -->
+    <div id="alertBox" class="fixed top-4 right-4 z-50 hidden max-w-md">
+        <div id="alertContent" class="bg-white text-black px-6 py-4 rounded-lg shadow-2xl border border-gray-200 animate-fadeIn">
+            <p id="alertText" class="text-sm"></p>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="min-h-screen flex flex-col">
+        
+        <!-- Header -->
+        <header class="border-b border-gray-700 py-6">
+            <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="text-2xl">💧</div>
+                    <h1 class="text-xl font-light tracking-wide">Sepolia Faucet</h1>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div id="headerBalance" class="text-sm text-gray-400">
+                        <span class="text-gray-500">Faucet Balance:</span> 
+                        <span id="faucetBalance" class="text-white font-mono">--</span>
+                    </div>
+                    
+                    <!-- Theme Toggle -->
+                    <button id="themeToggle" class="p-2 hover:bg-gray-800 rounded-lg transition-colors" title="Toggle theme">
+                        <svg id="darkIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                        <svg id="lightIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                    </button>
+
+                    <!-- Logout Button (hidden by default) -->
+                    <button id="logoutBtn" class="hidden text-sm text-gray-400 hover:text-white transition-colors">
+                        Disconnect
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex items-center justify-center px-6 py-12">
+            <div class="w-full max-w-4xl">
+                
+                <!-- Step 1: Connect Wallet -->
+                <section id="connectSection" class="animate-fadeIn">
+                    <div class="text-center space-y-8">
+                        <div class="space-y-3">
+                            <h2 class="text-5xl font-light tracking-tight">Connect Your Wallet</h2>
+                            <p class="text-gray-400 text-lg">Get started by connecting your MetaMask wallet</p>
+                        </div>
+                        <button id="connectBtn" class="inline-flex items-center gap-3 bg-white text-black px-8 py-4 rounded-lg hover:bg-gray-100 transition-all duration-200 text-lg font-medium">
+                            <svg class="w-6 h-6" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M32.5 5L22 13.5L24 8.5L32.5 5Z" fill="#E17726" stroke="#E17726" stroke-width="0.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M7.5 5L17.9 13.6L16 8.5L7.5 5Z" fill="#E27625" stroke="#E27625" stroke-width="0.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M28 28.5L25 33.5L32 35.5L34 28.6L28 28.5Z" fill="#E27625" stroke="#E27625" stroke-width="0.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M6 28.6L8 35.5L15 33.5L12 28.5L6 28.6Z" fill="#E27625" stroke="#E27625" stroke-width="0.25" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Connect Wallet
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Step 2: Wallet Connected -->
+                <section id="walletSection" class="hidden">
+                    
+                    <!-- Tabs Navigation -->
+                    <div class="flex gap-4 mb-8 border-b border-gray-700">
+                        <button id="faucetTab" class="tab-btn active px-6 py-3 font-medium transition-colors border-b-2 border-white">
+                            Faucet
+                        </button>
+                        <button id="spinTab" class="tab-btn px-6 py-3 font-medium transition-colors border-b-2 border-transparent hover:border-gray-500">
+                            Spin Wheel
+                        </button>
+                        <button id="donateTab" class="tab-btn px-6 py-3 font-medium transition-colors border-b-2 border-transparent hover:border-gray-500">
+                            Donate
+                        </button>
+                        <button id="sponsorTab" class="tab-btn px-6 py-3 font-medium transition-colors border-b-2 border-transparent hover:border-gray-500">
+                            Sponsors
+                        </button>
+                    </div>
+
+                    <!-- Faucet Content -->
+                    <div id="faucetContent" class="tab-content">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        <!-- Left: Wallet Info -->
+                        <div class="lg:col-span-1 space-y-6">
+                            <div class="border border-gray-700 rounded-lg p-6 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-400">Wallet</span>
+                                    <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                                </div>
+                                <div class="font-mono text-sm break-all text-gray-300" id="walletAddress"></div>
+                            </div>
+
+                            <div class="border border-gray-700 rounded-lg p-6 space-y-2">
+                                <div class="text-sm text-gray-400">Reward Amount</div>
+                                <div class="text-3xl font-light">0.05 <span class="text-lg text-gray-400">ETH</span></div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Actions -->
+                        <div class="lg:col-span-2 space-y-6">
+                            
+                            <!-- Ad Progress -->
+                            <div class="border border-gray-700 rounded-lg p-8 space-y-6">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-2xl font-light">Watch Ads</h3>
+                                    <span class="text-sm text-gray-400"><span id="progressText">0</span>/5 completed</span>
+                                </div>
+                                
+                                <!-- Progress Bar -->
+                                <div class="relative h-2 bg-gray-700 rounded-full overflow-hidden">
+                                    <div id="progressFill" class="absolute inset-y-0 left-0 bg-white transition-all duration-500 ease-out" style="width: 0%"></div>
+                                </div>
+
+                                <button id="watchAdBtn" class="w-full bg-white text-black py-4 rounded-lg hover:bg-gray-100 transition-all duration-200 font-medium text-lg">
+                                    Watch Ad (<span id="adsRemaining">5</span> remaining)
+                                </button>
+                            </div>
+
+                            <!-- Claim Section -->
+                            <div class="border border-gray-700 rounded-lg p-8">
+                                <button id="claimBtn" disabled class="w-full bg-white text-black py-4 rounded-lg hover:bg-gray-100 transition-all duration-200 font-medium text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white">
+                                    Claim Reward
+                                </button>
+                                <p class="text-center text-sm text-gray-500 mt-4">Complete all ads to unlock</p>
+                            </div>
+
+                        </div>
+                    </div>
+                    </div>
+
+                    <!-- Spin Wheel Content -->
+                    <div id="spinContent" class="tab-content hidden">
+                        <div class="max-w-2xl mx-auto text-center space-y-8">
+                            
+                            <!-- Wheel Container -->
+                            <div class="relative flex justify-center items-center py-8">
+                                <div class="relative">
+                                    <!-- Pointer -->
+                                    <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-3 z-10">
+                                        <div class="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[35px] border-t-red-500 drop-shadow-lg"></div>
+                                    </div>
+                                    
+                                    <!-- Canvas Wheel -->
+                                    <canvas id="wheelCanvas" width="500" height="500" class="max-w-full h-auto"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Spin Button -->
+                            <div class="space-y-4">
+                                <button id="spinBtn" class="bg-white text-black px-12 py-4 rounded-lg hover:bg-gray-100 transition-all duration-200 font-medium text-lg disabled:opacity-30 disabled:cursor-not-allowed">
+                                    Spin the Wheel
+                                </button>
+                                <p id="spinStatus" class="text-sm text-gray-400"></p>
+                            </div>
+
+                            <!-- Result -->
+                            <div id="spinResult" class="hidden border border-gray-700 rounded-lg p-6">
+                                <p class="text-xl mb-2">Better luck next time!</p>
+                                <p class="text-gray-400 text-sm">Come back in 24 hours to spin again</p>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Donate Content -->
+                    <div id="donateContent" class="tab-content hidden">
+                        <div class="max-w-2xl mx-auto space-y-8">
+                            
+                            <div class="text-center space-y-4">
+                                <div class="text-6xl mb-4">💝</div>
+                                <h2 class="text-4xl font-light">Support the Faucet</h2>
+                                <p class="text-gray-400 text-lg">Help keep the faucet running by donating Sepolia ETH</p>
+                            </div>
+
+                            <!-- Donation Form -->
+                            <div class="border border-gray-700 rounded-lg p-8 space-y-6">
+                                <div class="space-y-2">
+                                    <label class="text-sm text-gray-400">Amount (ETH)</label>
+                                    <input 
+                                        type="number" 
+                                        id="donateAmount" 
+                                        placeholder="0.1" 
+                                        step="0.001"
+                                        min="0.001"
+                                        class="w-full bg-transparent border border-gray-700 rounded-lg px-4 py-3 text-lg focus:outline-none focus:border-white transition-colors"
+                                    />
+                                </div>
+
+                                <div class="flex gap-2">
+                                    <button onclick="setDonateAmount(0.01)" class="flex-1 border border-gray-700 rounded-lg py-2 hover:bg-gray-800 transition-colors text-sm">
+                                        0.01 ETH
+                                    </button>
+                                    <button onclick="setDonateAmount(0.05)" class="flex-1 border border-gray-700 rounded-lg py-2 hover:bg-gray-800 transition-colors text-sm">
+                                        0.05 ETH
+                                    </button>
+                                    <button onclick="setDonateAmount(0.1)" class="flex-1 border border-gray-700 rounded-lg py-2 hover:bg-gray-800 transition-colors text-sm">
+                                        0.1 ETH
+                                    </button>
+                                    <button onclick="setDonateAmount(0.5)" class="flex-1 border border-gray-700 rounded-lg py-2 hover:bg-gray-800 transition-colors text-sm">
+                                        0.5 ETH
+                                    </button>
+                                </div>
+
+                                <button 
+                                    id="donateBtn" 
+                                    class="w-full bg-white text-black py-4 rounded-lg hover:bg-gray-100 transition-all duration-200 font-medium text-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                    Send Donation
+                                </button>
+
+                                <p id="donateStatus" class="text-center text-sm text-gray-400"></p>
+                            </div>
+
+                            <!-- Info Box -->
+                            <div class="border border-gray-700 rounded-lg p-6 space-y-3">
+                                <p class="text-sm text-gray-400">
+                                    <strong class="text-white">Why donate?</strong><br>
+                                    Your donations help keep the faucet funded and running for everyone. All donations go directly to the smart contract and are used to distribute rewards.
+                                </p>
+                                <p class="text-xs text-gray-500">
+                                    Contract: <span class="font-mono">0xe7378d385B6998F54146DaE5AEDf28f3Ac5b4ed7</span>
+                                </p>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Sponsors Content -->
+                    <div id="sponsorContent" class="tab-content hidden">
+                        <div class="max-w-2xl mx-auto text-center space-y-8 py-20">
+                            <div class="text-6xl mb-4">🚀</div>
+                            <h2 class="text-4xl font-light">Coming Soon</h2>
+                            <p class="text-gray-400 text-lg">We're working on bringing you amazing sponsors and partnerships.</p>
+                            <div class="border border-gray-700 rounded-lg p-8 space-y-4">
+                                <p class="text-sm text-gray-500">Interested in sponsoring?</p>
+                                <p class="text-gray-400">Contact us for partnership opportunities</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </section>
+
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="border-t border-gray-700 py-6">
+            <div class="max-w-7xl mx-auto px-6 text-center text-sm text-gray-500">
+                <p>Sepolia Testnet • Watch ads to earn test ETH</p>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Ad Container Overlay -->
+    <div id="adContainer" class="fixed inset-0 bg-black/95 backdrop-blur-sm z-40 hidden items-center justify-center">
+        <div class="bg-white text-black rounded-lg max-w-2xl w-full mx-4 overflow-hidden">
+            <!-- Ad content will be injected here -->
+        </div>
+    </div>
+
+    <!-- JavaScript Files -->
+    <script src="config.js"></script>
+    <script src="ad-videos.js"></script>
+    <script src="ads.js"></script>
+    <script src="spin-wheel.js"></script>
+    <script src="app.js"></script>
+
+</body>
+</html>
